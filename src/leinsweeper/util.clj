@@ -92,4 +92,4 @@
 (defn unflag-cell [minefield ^long x ^long y]
   (assert-in-progress minefield)
   (assert (= ::flagged (::cell-status (get-cell minefield x y))) "Cannot unflag unflagged cell")
-  (assoc-in minefield [::cells x y ::cell-status] ::flagged))
+  (assoc-in minefield [::cells x y ::cell-status] ::untouched))
