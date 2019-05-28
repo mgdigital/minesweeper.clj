@@ -1,4 +1,4 @@
-# Leinsweeper
+# Minesweeper.clj
 
 A simple Minesweeper implementation in Clojure using [Quil](https://github.com/quil/quil).
 
