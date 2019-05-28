@@ -1,5 +1,5 @@
-(ns leinsweeper.ui
-  (:require [leinsweeper.util :as util]
+(ns minesweeper.ui
+    (:require [minesweeper.engine :as engine]
             [quil.core :as q]
             [quil.middleware :as m]))
 
@@ -15,63 +15,63 @@
 (defn update-state [state] (identity state))
 
 (def game-status-colors {
-                         ::util/in-progress [240 240 240]
-                         ::util/won [100 255 100]
-                         ::util/lost [255 100 100]})
+                         ::engine/in-progress [240 240 240]
+                         ::engine/won [100 255 100]
+                         ::engine/lost [255 100 100]})
 
 (def cell-status-colors {
-                         ::util/untouched [0 0 255]
-                         ::util/flagged [255 255 0]
-                         ::util/revealed [0 255 0]
+                         ::engine/untouched [0 0 255]
+                         ::engine/flagged [255 255 0]
+                         ::engine/revealed [0 255 0]
                          })
 
 (defn get-cell-color [cell]
-  (let [status (::util/cell-status cell)]
-    (if (and (::util/has-mine cell) (= status ::util/revealed)) [255 0 0] (status cell-status-colors))))
+  (let [status (::engine/cell-status cell)]
+    (if (and (::engine/has-mine cell) (= status ::engine/revealed)) [255 0 0] (status cell-status-colors))))
 
 (defn draw-state [state]
-  (let [game-status (util/get-game-status state)]
+  (let [game-status (engine/get-game-status state)]
     (apply q/background (game-status game-status-colors))
     (dorun
       (map
         (fn [[x y]]
-          (let [cell (util/get-cell state x y)]
+          (let [cell (engine/get-cell state x y)]
             (q/with-fill (get-cell-color cell)
                          (q/rect (* cell-offset x) (* cell-offset y) cell-size cell-size))
-            (if (= ::util/revealed (::util/cell-status cell))
+            (if (= ::engine/revealed (::engine/cell-status cell))
               (q/with-fill [0 0 0] (q/text
                                      (if
-                                       (and (= ::util/lost game-status) (::util/has-mine cell))
+                                       (and (= ::engine/lost game-status) (::engine/has-mine cell))
                                        "M"
-                                       (str (util/get-adjacent-mine-count state x y)))
+                                       (str (engine/get-adjacent-mine-count state x y)))
                                      (* cell-offset x)
                                      (- (* cell-offset y) 3)
                                      cell-offset
                                      cell-offset)))))
-        (for [x (range (::util/width state)) y (range (::util/height state))] [x y]))
+        (for [x (range (::engine/width state)) y (range (::engine/height state))] [x y]))
       )
     ))
 
 (defn convert-coords [m x y]
   "Returns corresponding minefield coordinates for clicked cell coordinates"
-  (let [width (::util/width m)
-        height (::util/height m)
+  (let [width (::engine/width m)
+        height (::engine/height m)
         cellx (int (/ x cell-offset))
         celly (int (/ y cell-offset))]
     (if (and (< cellx width) (< celly height)) [cellx celly])))
 
 (defn handle-cell-clicked [m x y b]
   (cond
-    (not= ::util/in-progress (util/get-game-status m)) m
-    :otherwise (let [cell (util/get-cell m x y)
-                     cell-status (::util/cell-status cell)]
+    (not= ::engine/in-progress (engine/get-game-status m)) m
+    :otherwise (let [cell (engine/get-cell m x y)
+                     cell-status (::engine/cell-status cell)]
                  (cond
-                   (= cell-status ::util/revealed) m
+                   (= cell-status ::engine/revealed) m
                    :otherwise (case b
-                                :right (util/reveal-cell m x y)
+                                :right (engine/reveal-cell m x y)
                                 :left (case cell-status
-                                        ::util/flagged (util/unflag-cell m x y)
-                                        ::util/untouched (util/flag-cell m x y))
+                                        ::engine/flagged (engine/unflag-cell m x y)
+                                        ::engine/untouched (engine/flag-cell m x y))
                                 m)))))
 
 (defn handle-click [state event]
@@ -80,7 +80,7 @@
                  (handle-cell-clicked state x y (:button event))) state)))
 
 (defn -main [& args]
-  (let [initial-minefield (util/generate-minefield width height mine-count)]
+  (let [initial-minefield (engine/generate-minefield width height mine-count)]
     (q/defsketch quilsweeper
                  :title "Minesweeper"
                  :size [area-width area-height]
@@ -93,9 +93,6 @@
                  :update update-state
                  :draw draw-state
                  :features [:keep-on-top]
-                 ; This sketch uses functional-mode middleware.
-                 ; Check quil wiki for more info about middlewares and particularly
-                 ; fun-mode.
                  :mouse-clicked handle-click
                  :middleware [m/fun-mode])
     ))

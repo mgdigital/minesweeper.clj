@@ -1,42 +1,13 @@
-(ns leinsweeper.util
-  (:require [clojure.spec.alpha :as s]))
+(ns minesweeper.engine)
 
-(s/def ::game-status #(::in-progress ::won ::lost))
-
-(s/def ::cell-status #{::untouched ::flagged ::revealed})
-
-(s/def ::has-mine boolean?)
-
-(s/def ::cell
-  (s/keys :req [
-    ::has-mine
-    ::cell-status]))
-
-(s/def ::width pos-int?)
-(s/def ::height pos-int?)
-(s/def ::mine-count pos-int?)
-(s/def ::cells (s/coll-of (s/coll-of ::cell)))
-
-(s/def ::minefield
-  (s/and
-    (s/keys
-      :req [::width
-            ::height
-            ::mine-count
-            ::cells])
-    #(= (::width %) (count (::cells %)))
-    (fn [m] (not-any? #(not= (::height m) (count %)) (::cells m)))
-    #(= (::mine-count %) (count (filter ::has-mine (reduce concat (::cells %)))))
-    #(< (::mine-count %) (* (::width %) (::height %)))))
-
-(defn valid-coords? [minefield ^long x ^long y]
+(defn valid-coords? [minefield x y]
   (and (>= x 0) (>= y 0) (> (::width minefield) x) (> (::height minefield) y)))
 
-(defn get-cell [minefield ^long x ^long y]
+(defn get-cell [minefield x y]
   (assert (valid-coords? minefield x y))
   (nth (nth (::cells minefield) x) y))
 
-(defn generate-minefield [^long width ^long height ^long mine-count]
+(defn generate-minefield [width height mine-count]
   (assert (< mine-count (* width height)) "Too many mines for grid size!")
   (hash-map ::width width
             ::height height
@@ -48,7 +19,6 @@
                       (take mine-count (shuffle (for [x (range width) y (range height)] [x y]))))))
 
 (defn get-game-status [minefield]
-  (s/assert ::minefield minefield)
   (let [cells (reduce concat (::cells minefield))]
     (cond
       (some #(and
@@ -65,7 +35,7 @@
 
 (defn assert-in-progress [minefield] (assert (in-progress? minefield) "The game is over"))
 
-(defn get-adjacent-cell-coords [minefield ^long x ^long y]
+(defn get-adjacent-cell-coords [minefield x y]
   (assert (valid-coords? minefield x y))
   (filter (fn [[adjx adjy]]
             (and (not= [adjx adjy] [x y]) (valid-coords? minefield adjx adjy))) (for [diffx [-1 0 1] diffy [-1 0 1]] [(+ x diffx) (+ y diffy)])))
@@ -74,7 +44,7 @@
   (count (vec (filter (fn [[adjx adjy]]
                         (::has-mine (get-cell minefield adjx adjy))) (get-adjacent-cell-coords minefield x y)))))
 
-(defn reveal-cell [minefield ^long x ^long y]
+(defn reveal-cell [minefield x y]
   (assert-in-progress minefield)
   (let [cell (get-cell minefield x y)]
     (if (= (::cell-status cell) ::revealed)
@@ -84,12 +54,12 @@
           (reduce (fn [current [adjx adjy]] (if (= ::untouched (::cell-status (get-cell current adjx adjy)))(reveal-cell current adjx adjy) current)) revealed (get-adjacent-cell-coords revealed x y))
           revealed)))))
 
-(defn flag-cell [minefield ^long x ^long y]
+(defn flag-cell [minefield x y]
   (assert-in-progress minefield)
   (assert (not= ::revealed (::cell-status (get-cell minefield x y))) "Cannot flag revealed cell")
   (assoc-in minefield [::cells x y ::cell-status] ::flagged))
 
-(defn unflag-cell [minefield ^long x ^long y]
+(defn unflag-cell [minefield x y]
   (assert-in-progress minefield)
   (assert (= ::flagged (::cell-status (get-cell minefield x y))) "Cannot unflag unflagged cell")
   (assoc-in minefield [::cells x y ::cell-status] ::untouched))
